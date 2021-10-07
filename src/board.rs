@@ -1,4 +1,8 @@
-use crate::{cell::Cell, cell::CellList, digit::Digit};
+use crate::{
+    cell::{Cell, CellList},
+    digit::Digit,
+    index::{Column, Index, Row},
+};
 use std::fmt;
 
 #[derive(Debug)]
@@ -6,8 +10,8 @@ pub struct Board {
     pub data: [Cell; 81],
 }
 
-fn get_flattened_index(row: usize, column: usize) -> usize {
-    return (row * 9) + column;
+fn get_flattened_index(row: Row, column: Column) -> usize {
+    return (row.0 * 9) + column.0;
 }
 
 impl Board {
@@ -20,8 +24,8 @@ impl Board {
         let mut index: usize = 0;
 
         for ch in value.chars() {
-            let column: usize = index % 9;
-            let row: usize = ((index as f64) / 9.0).floor() as usize;
+            let column = Column(index % 9);
+            let row = Row(((index as f64) / 9.0).floor() as usize);
             let out: Option<Cell> = match ch {
                 Digit::EMPTY_CHARACTER => Some(Cell {
                     digit: None,
@@ -52,12 +56,11 @@ impl Board {
         return Board::new(data);
     }
 
-    pub fn column(&self, index: usize) -> CellList {
-        return CellList(find_cells_where(self, |c| c.column == index));
-    }
-
-    pub fn row(&self, index: usize) -> CellList {
-        return CellList(find_cells_where(self, |c| c.row == index));
+    pub fn get<T>(&self, index: T) -> T::Output
+    where
+        T: Index,
+    {
+        return index.get(self);
     }
 
     pub fn set_digit_at_cell(&mut self, cell: Cell, digit: Digit) {
@@ -74,7 +77,8 @@ impl Board {
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for i in 0..9 {
-            let str = self.row(i).0.map(Cell::to_string).join(" ");
+            let row = Row(i);
+            let str = self.get(row).cells.map(|c| c.to_string()).join(" ");
             if i < 8 {
                 writeln!(f, "{}", str)?;
             } else {
@@ -83,25 +87,6 @@ impl fmt::Display for Board {
         }
         return fmt::Result::Ok(());
     }
-}
-
-fn find_cells_where<'a, const N: usize>(
-    board: &'a Board,
-    mut f: impl FnMut(&Cell) -> bool,
-) -> [&Cell; N] {
-    let mut out = [&Cell::EMPTY; N];
-    let mut out_index: usize = 0;
-
-    for cell in &board.data {
-        if f(cell) {
-            out[out_index] = cell;
-            out_index += 1;
-        }
-    }
-
-    assert_eq!(N, out_index);
-
-    return out;
 }
 
 const TEST_BOARD: &'static str = r#"
@@ -119,7 +104,7 @@ const TEST_BOARD: &'static str = r#"
 #[test]
 fn test_get_column() {
     let board = Board::from_str(TEST_BOARD);
-    let digits = board.column(4).0.map(|c| c.digit);
+    let digits = board.get(Column(4)).cells.map(|c| c.digit);
     assert_eq!(
         [
             None,
@@ -139,7 +124,7 @@ fn test_get_column() {
 #[test]
 fn test_get_row() {
     let board = Board::from_str(TEST_BOARD);
-    let digits = board.row(3).0.map(|c| c.digit);
+    let digits = board.get(Row(3)).cells.map(|c| c.digit);
     assert_eq!(
         [
             Some(Digit::Six),

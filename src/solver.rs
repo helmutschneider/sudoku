@@ -34,7 +34,7 @@ impl<'a, const N: usize> Solver<'a, N> {
             }
 
             if !did_find_solution {
-                // we went through all our strategies but did not find a solution anywhere. bad!
+                // we went through all our strategies but did not find a solution anywhere. supabad!
                 return false;
             }
         }
@@ -49,7 +49,7 @@ pub trait Strategy {
 
 pub struct Strategies {}
 impl Strategies {
-    pub const SinglePossibleDigit: SinglePossibleDigitStrategy = SinglePossibleDigitStrategy {};
+    pub const SINGLE_POSSIBLE_DIGIT: SinglePossibleDigitStrategy = SinglePossibleDigitStrategy {};
 }
 
 pub struct SinglePossibleDigitStrategy {}

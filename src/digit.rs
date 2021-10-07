@@ -27,13 +27,7 @@ impl Digit {
     pub const EMPTY_CHARACTER: char = '-';
 
     pub fn to_u8(&self) -> u8 {
-        for i in 0..Self::ALL_DIGITS.len() {
-            let digit = Self::ALL_DIGITS[i];
-            if digit == *self {
-                return (i + 1) as u8;
-            }
-        }
-        panic!("Unknown digit {:?}.", self);
+        return (*self as u8) + 1;
     }
 
     pub fn from_u8(value: u8) -> Option<Self> {

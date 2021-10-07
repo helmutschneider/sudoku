@@ -1,6 +1,7 @@
 mod board;
 mod cell;
 mod digit;
+mod index;
 mod solver;
 
 use board::Board;
@@ -20,10 +21,9 @@ fn main() {
 - 3 4 - 6 - 9 2 -
     "#;
     let mut board = Board::from_str(&str);
-    let solver = Solver::new([&Strategies::SinglePossibleDigit]);
-    let ok = solver.solve(&mut board);
-    // let solver = Solver::new([&SinglePossibleDigitStrategy {}]);
+    let solver = Solver::new([&Strategies::SINGLE_POSSIBLE_DIGIT]);
 
-    println!("{}", board);
-    println!("{}", ok);
+    // let ok = solver.solve(&mut board);
+
+    // println!("{}", board);
 }
