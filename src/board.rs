@@ -1,17 +1,14 @@
 use crate::{
-    cell::{Cell, CellList},
+    cell::Cell,
     digit::Digit,
-    index::{Column, Index, Row},
+    index::{Column, Index, IndexLike, Row},
 };
+use std::collections::HashSet;
 use std::fmt;
 
 #[derive(Debug)]
 pub struct Board {
     pub data: [Cell; 81],
-}
-
-fn get_flattened_index(row: Row, column: Column) -> usize {
-    return (row.0 * 9) + column.0;
 }
 
 impl Board {
@@ -29,16 +26,14 @@ impl Board {
             let out: Option<Cell> = match ch {
                 Digit::EMPTY_CHARACTER => Some(Cell {
                     digit: None,
-                    column,
-                    row,
+                    index: Index(row, column),
                 }),
                 _ => {
                     let maybe_digit = Digit::from_char(ch);
                     if maybe_digit.is_some() {
                         Some(Cell {
                             digit: maybe_digit,
-                            column: column,
-                            row: row,
+                            index: Index(row, column),
                         })
                     } else {
                         None
@@ -58,19 +53,45 @@ impl Board {
 
     pub fn get<T>(&self, index: T) -> T::Output
     where
-        T: Index,
+        T: IndexLike,
     {
         return index.get(self);
     }
 
-    pub fn set_digit_at_cell(&mut self, cell: Cell, digit: Digit) {
-        let idx = get_flattened_index(cell.row, cell.column);
+    pub fn set_digit(&mut self, index: Index, digit: Digit) {
+        let idx = index.to_array_index();
         let cell = &mut self.data[idx];
         cell.digit = Some(digit);
     }
 
     pub fn is_solved(&self) -> bool {
         return self.data.iter().all(|c| c.digit.is_some());
+    }
+
+    pub fn get_possible_digits(&self, index: Index) -> HashSet<Digit> {
+        let mut stuff = HashSet::new();
+        let cell = self.get(index);
+
+        if cell.digit.is_some() {
+            return stuff;
+        }
+
+        for digit in Digit::ALL_DIGITS {
+            stuff.insert(digit);
+        }
+
+        let mut related_cells = Vec::new();
+        related_cells.extend_from_slice(&self.get(index.0).cells);
+        related_cells.extend_from_slice(&self.get(index.1).cells);
+        related_cells.extend_from_slice(&self.get(index.section()).cells);
+
+        for c in related_cells {
+            if let Some(digit) = c.digit {
+                stuff.remove(&digit);
+            }
+        }
+
+        return stuff;
     }
 }
 
@@ -89,7 +110,9 @@ impl fmt::Display for Board {
     }
 }
 
-const TEST_BOARD: &'static str = r#"
+#[test]
+fn test_get_column() {
+    let str = r#"
 - - - - - - - - -
 - - - - - - - - -
 - - - - - - - - -
@@ -100,10 +123,7 @@ const TEST_BOARD: &'static str = r#"
 - - - - - - - - -
 - - - - 1 - - - -
 "#;
-
-#[test]
-fn test_get_column() {
-    let board = Board::from_str(TEST_BOARD);
+    let board = Board::from_str(str);
     let digits = board.get(Column(4)).cells.map(|c| c.digit);
     assert_eq!(
         [
@@ -123,7 +143,18 @@ fn test_get_column() {
 
 #[test]
 fn test_get_row() {
-    let board = Board::from_str(TEST_BOARD);
+    let str = r#"
+- - - - - - - - -
+- - - - - - - - -
+- - - - - - - - -
+6 - - - 5 - - - 7
+- - - - - - - - -
+- - - - - - - - -
+- - - - 4 - - - -
+- - - - - - - - -
+- - - - 1 - - - -
+"#;
+    let board = Board::from_str(str);
     let digits = board.get(Row(3)).cells.map(|c| c.digit);
     assert_eq!(
         [
@@ -139,4 +170,73 @@ fn test_get_row() {
         ],
         digits
     );
+}
+
+#[test]
+fn test_set_digit() {
+    let str = r#"
+- - - - - - - - -
+- - - - - - - - -
+- - - - - - - - -
+6 - - - 5 - - - 7
+- - - - - - - - -
+- - - - - - - - -
+- - - - 4 - - - -
+- - - - - - - - -
+- - - - 1 - - - -
+"#;
+    let mut board = Board::from_str(str);
+    let index = Index(Row(2), Column(2));
+    board.set_digit(index, Digit::Five);
+
+    assert_eq!(Some(Digit::Five), board.get(index).digit);
+}
+
+#[test]
+fn test_get_possible_digits_one() {
+    let str = r#"
+    9 - - 8 3 - 1 5 7
+    5 - 3 1 - 6 2 8 -
+    1 - - 7 4 - - 9 -
+    - - - - 5 - 8 3 -
+    3 - 1 - - 4 6 7 2
+    2 - - - 1 3 - - 9
+    - - 2 - 7 - - 1 -
+    - - - - - - - 6 -
+    - 3 4 - 6 - 9 2 -
+        "#;
+
+    let board = Board::from_str(str);
+    let idx = Index(Row(0), Column(1));
+    let possible = board.get_possible_digits(idx);
+    let mut set = HashSet::new();
+    set.insert(Digit::Two);
+    set.insert(Digit::Four);
+    set.insert(Digit::Six);
+
+    assert_eq!(set, possible);
+}
+
+#[test]
+fn test_get_possible_digits_two() {
+    let str = r#"
+    9 - - 8 3 - 1 5 7
+    5 - 3 1 - 6 2 8 -
+    1 - - 7 4 - - 9 -
+    - - - - 5 - 8 3 -
+    3 - 1 - - 4 6 7 2
+    2 - - - 1 3 - - 9
+    - - 2 - 7 - - 1 -
+    - - - - - - - 6 -
+    - 3 4 - 6 - 9 2 -
+        "#;
+
+    let board = Board::from_str(str);
+    let idx = Index(Row(8), Column(8));
+    let possible = board.get_possible_digits(idx);
+    let mut set = HashSet::new();
+    set.insert(Digit::Five);
+    set.insert(Digit::Eight);
+
+    assert_eq!(set, possible);
 }

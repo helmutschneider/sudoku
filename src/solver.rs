@@ -2,15 +2,17 @@ use crate::board::Board;
 use crate::cell::Cell;
 use crate::digit::Digit;
 
-type StrategyList<'a, const N: usize> = [&'a dyn Strategy; N];
+const STRATEGIES: [&dyn Strategy; 1] = [&SinglePossibleDigitStrategy {}];
 
-pub struct Solver<'a, const N: usize> {
-    strategies: StrategyList<'a, N>,
+pub struct Solver<'a> {
+    strategies: &'a [&'a dyn Strategy],
 }
 
-impl<'a, const N: usize> Solver<'a, N> {
-    pub fn new(strategies: StrategyList<'a, N>) -> Self {
-        return Self { strategies };
+impl<'a> Solver<'a> {
+    pub fn new() -> Self {
+        return Self {
+            strategies: &STRATEGIES,
+        };
     }
 
     pub fn solve(&self, board: &mut Board) -> bool {
@@ -24,7 +26,7 @@ impl<'a, const N: usize> Solver<'a, N> {
                     let maybe_digit = strat.solve_cell(board, cell);
                     if let Some(digit) = maybe_digit {
                         did_find_solution = true;
-                        board.set_digit_at_cell(cell, digit);
+                        board.set_digit(cell.index, digit);
                         break;
                     }
                 }
@@ -47,15 +49,17 @@ pub trait Strategy {
     fn solve_cell(&self, board: &Board, cell: Cell) -> Option<Digit>;
 }
 
-pub struct Strategies {}
-impl Strategies {
-    pub const SINGLE_POSSIBLE_DIGIT: SinglePossibleDigitStrategy = SinglePossibleDigitStrategy {};
-}
-
 pub struct SinglePossibleDigitStrategy {}
 
 impl Strategy for SinglePossibleDigitStrategy {
     fn solve_cell(&self, board: &Board, cell: Cell) -> Option<Digit> {
-        return Some(Digit::Eight);
+        let possible = board.get_possible_digits(cell.index);
+        if possible.len() == 1 {
+            // is there a more efficient way to extract an element from a HashSet?
+            for dig in possible {
+                return Some(dig);
+            }
+        }
+        return None;
     }
 }
