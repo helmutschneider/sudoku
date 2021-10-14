@@ -1,18 +1,16 @@
 use crate::digit::Digit;
-use crate::index::Column;
-use crate::index::Index;
-use crate::index::Row;
+use crate::index::CellIndex;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Cell {
     pub digit: Option<Digit>,
-    pub index: Index,
+    pub index: CellIndex,
 }
 
 impl Cell {
     pub const EMPTY: Cell = Cell {
         digit: None,
-        index: Index(Row(0), Column(0)),
+        index: CellIndex::ZERO,
     };
 
     pub fn to_string(&self) -> String {

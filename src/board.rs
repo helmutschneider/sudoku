@@ -1,39 +1,39 @@
 use crate::{
     cell::Cell,
     digit::Digit,
-    index::{Column, Index, IndexLike, Row},
+    index::{CellIndex, ColumnIndex, IndexLike, RowIndex},
 };
 use std::collections::HashSet;
 use std::fmt;
 
 #[derive(Debug)]
 pub struct Board {
-    pub data: [Cell; 81],
+    pub data: [[Cell; 9]; 9],
 }
 
 impl Board {
-    pub fn new(data: [Cell; 81]) -> Self {
+    pub fn new(data: [[Cell; 9]; 9]) -> Self {
         return Self { data };
     }
 
     pub fn from_str(value: &str) -> Self {
-        let mut data: [Cell; 81] = [Cell::EMPTY; 81];
+        let mut data: [[Cell; 9]; 9] = [[Cell::EMPTY; 9]; 9];
         let mut index: usize = 0;
 
         for ch in value.chars() {
-            let column = Column(index % 9);
-            let row = Row(((index as f64) / 9.0).floor() as usize);
+            let column = ColumnIndex(index % 9);
+            let row = RowIndex(((index as f64) / 9.0).floor() as usize);
             let out: Option<Cell> = match ch {
                 Digit::EMPTY_CHARACTER => Some(Cell {
                     digit: None,
-                    index: Index(row, column),
+                    index: CellIndex(row, column),
                 }),
                 _ => {
                     let maybe_digit = Digit::from_char(ch);
                     if maybe_digit.is_some() {
                         Some(Cell {
                             digit: maybe_digit,
-                            index: Index(row, column),
+                            index: CellIndex(row, column),
                         })
                     } else {
                         None
@@ -41,7 +41,7 @@ impl Board {
                 }
             };
             if let Some(cell) = out {
-                data[index] = cell;
+                data[row.0][column.0] = cell;
                 index += 1;
             }
         }
@@ -58,17 +58,16 @@ impl Board {
         return index.get(self);
     }
 
-    pub fn set_digit(&mut self, index: Index, digit: Digit) {
-        let idx = index.to_array_index();
-        let cell = &mut self.data[idx];
+    pub fn set_digit(&mut self, index: CellIndex, digit: Digit) {
+        let cell = &mut self.data[index.0 .0][index.1 .0];
         cell.digit = Some(digit);
     }
 
     pub fn is_solved(&self) -> bool {
-        return self.data.iter().all(|c| c.digit.is_some());
+        return self.data.iter().flatten().all(|c| c.digit.is_some());
     }
 
-    pub fn get_possible_digits(&self, index: Index) -> HashSet<Digit> {
+    pub fn get_possible_digits(&self, index: CellIndex) -> HashSet<Digit> {
         let mut stuff = HashSet::new();
         let cell = self.get(index);
 
@@ -98,7 +97,7 @@ impl Board {
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for i in 0..9 {
-            let row = Row(i);
+            let row = RowIndex(i);
             let str = self.get(row).cells.map(|c| c.to_string()).join(" ");
             if i < 8 {
                 writeln!(f, "{}", str)?;
@@ -124,7 +123,7 @@ fn test_get_column() {
 - - - - 1 - - - -
 "#;
     let board = Board::from_str(str);
-    let digits = board.get(Column(4)).cells.map(|c| c.digit);
+    let digits = board.get(ColumnIndex(4)).cells.map(|c| c.digit);
     assert_eq!(
         [
             None,
@@ -155,7 +154,7 @@ fn test_get_row() {
 - - - - 1 - - - -
 "#;
     let board = Board::from_str(str);
-    let digits = board.get(Row(3)).cells.map(|c| c.digit);
+    let digits = board.get(RowIndex(3)).cells.map(|c| c.digit);
     assert_eq!(
         [
             Some(Digit::Six),
@@ -186,7 +185,7 @@ fn test_set_digit() {
 - - - - 1 - - - -
 "#;
     let mut board = Board::from_str(str);
-    let index = Index(Row(2), Column(2));
+    let index = CellIndex(RowIndex(2), ColumnIndex(2));
     board.set_digit(index, Digit::Five);
 
     assert_eq!(Some(Digit::Five), board.get(index).digit);
@@ -207,7 +206,7 @@ fn test_get_possible_digits_one() {
         "#;
 
     let board = Board::from_str(str);
-    let idx = Index(Row(0), Column(1));
+    let idx = CellIndex(RowIndex(0), ColumnIndex(1));
     let possible = board.get_possible_digits(idx);
     let mut set = HashSet::new();
     set.insert(Digit::Two);
@@ -232,7 +231,7 @@ fn test_get_possible_digits_two() {
         "#;
 
     let board = Board::from_str(str);
-    let idx = Index(Row(8), Column(8));
+    let idx = CellIndex(RowIndex(8), ColumnIndex(8));
     let possible = board.get_possible_digits(idx);
     let mut set = HashSet::new();
     set.insert(Digit::Five);

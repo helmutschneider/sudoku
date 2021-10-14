@@ -16,14 +16,17 @@ impl<'a> Solver<'a> {
     }
 
     pub fn solve(&self, board: &mut Board) -> bool {
+        let data = board.data;
+        let cells = data.iter().flatten().collect::<Vec<&Cell>>();
+
         while !board.is_solved() {
             let mut did_find_solution = false;
-            for cell in board.data {
+            for cell in &cells {
                 if cell.digit.is_some() {
                     continue;
                 }
                 for strat in self.strategies {
-                    let maybe_digit = strat.solve_cell(board, cell);
+                    let maybe_digit = strat.solve_cell(board, **cell);
                     if let Some(digit) = maybe_digit {
                         did_find_solution = true;
                         board.set_digit(cell.index, digit);

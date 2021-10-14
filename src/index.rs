@@ -4,29 +4,29 @@ use crate::cell::CellList;
 use crate::digit::Digit;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Column(pub usize);
+pub struct ColumnIndex(pub usize);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Row(pub usize);
+pub struct RowIndex(pub usize);
 
 // a single cell.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Index(pub Row, pub Column);
+pub struct CellIndex(pub RowIndex, pub ColumnIndex);
+
+impl CellIndex {
+    pub const ZERO: Self = Self(RowIndex(0), ColumnIndex(0));
+}
 
 // a 3x3-section.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Section(pub usize);
+pub struct SectionIndex(pub usize);
 
-impl Index {
-    pub fn to_array_index(&self) -> usize {
-        return (self.0 .0 * 9) + self.1 .0;
-    }
-
-    pub fn section(&self) -> Section {
+impl CellIndex {
+    pub fn section(&self) -> SectionIndex {
         let row = (self.0 .0 as f64 / 3.0).floor() as usize;
         let col = (self.1 .0 as f64 / 3.0).floor() as usize;
 
-        return Section((row * 3) + col);
+        return SectionIndex((row * 3) + col);
     }
 }
 
@@ -35,37 +35,43 @@ pub trait IndexLike {
     fn get(&self, board: &Board) -> Self::Output;
 }
 
-impl IndexLike for Column {
+impl IndexLike for ColumnIndex {
     type Output = CellList<Self>;
 
     fn get(&self, board: &Board) -> Self::Output {
+        let mut cells = [Cell::EMPTY; 9];
+
+        for i in 0..9 {
+            cells[i] = board.data[i][self.0];
+        }
+
         return CellList {
-            cells: find_cells_where(board, |c| c.index.1 == *self),
+            cells: cells,
             origin: *self,
         };
     }
 }
 
-impl IndexLike for Row {
+impl IndexLike for RowIndex {
     type Output = CellList<Self>;
 
     fn get(&self, board: &Board) -> Self::Output {
         return Self::Output {
-            cells: find_cells_where(board, |c| c.index.0 == *self),
+            cells: board.data[self.0],
             origin: *self,
         };
     }
 }
 
-impl IndexLike for Index {
+impl IndexLike for CellIndex {
     type Output = Cell;
 
     fn get(&self, board: &Board) -> Self::Output {
-        return board.data[self.to_array_index()];
+        return board.data[self.0 .0][self.1 .0];
     }
 }
 
-impl IndexLike for Section {
+impl IndexLike for SectionIndex {
     type Output = CellList<Self>;
 
     fn get(&self, board: &Board) -> Self::Output {
@@ -77,7 +83,7 @@ impl IndexLike for Section {
 
         for r in 0..3 {
             for c in 0..3 {
-                let index = Index(Row(start_row + r), Column(start_col + c));
+                let index = CellIndex(RowIndex(start_row + r), ColumnIndex(start_col + c));
                 out[i] = board.get(index);
                 i += 1;
             }
@@ -88,32 +94,6 @@ impl IndexLike for Section {
             origin: *self,
         };
     }
-}
-
-fn find_cells_where<F, const N: usize>(board: &Board, mut f: F) -> [Cell; N]
-where
-    F: FnMut(Cell) -> bool,
-{
-    let mut out = [Cell::EMPTY; N];
-    let mut i: usize = 0;
-
-    for cell in board.data {
-        if f(cell) {
-            out[i] = cell;
-            i += 1;
-        }
-    }
-
-    assert_eq!(N, i);
-
-    return out;
-}
-
-#[test]
-fn test_index_to_array_index() {
-    let index = Index(Row(2), Column(2));
-
-    assert_eq!(20, index.to_array_index())
 }
 
 #[test]
@@ -130,7 +110,7 @@ fn test_block_get() {
     - 3 4 - 6 - 9 2 -
     "#;
     let board = Board::from_str(str);
-    let block = board.get(Section(1));
+    let block = board.get(SectionIndex(1));
 
     assert_eq!(
         [
@@ -147,7 +127,7 @@ fn test_block_get() {
         block.cells.map(|c| c.digit)
     );
 
-    let block = board.get(Section(5));
+    let block = board.get(SectionIndex(5));
 
     assert_eq!(
         [
@@ -179,11 +159,9 @@ fn test_index_get_section() {
     - 3 4 - 6 - 9 2 -
     "#;
     let board = Board::from_str(str);
-    let idx = Index(Row(3), Column(4));
+    let idx = CellIndex(RowIndex(3), ColumnIndex(4));
     let cell = board.get(idx);
 
-    println!("{:?}", idx.to_array_index());
-
     assert_eq!(Some(Digit::Five), cell.digit);
-    assert_eq!(Section(4), idx.section());
+    assert_eq!(SectionIndex(4), idx.section());
 }
