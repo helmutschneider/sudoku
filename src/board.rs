@@ -66,32 +66,6 @@ impl Board {
     pub fn is_solved(&self) -> bool {
         return self.data.iter().flatten().all(|c| c.digit.is_some());
     }
-
-    pub fn get_possible_digits(&self, index: CellIndex) -> HashSet<Digit> {
-        let mut stuff = HashSet::new();
-        let cell = self.get(index);
-
-        if cell.digit.is_some() {
-            return stuff;
-        }
-
-        for digit in Digit::ALL_DIGITS {
-            stuff.insert(digit);
-        }
-
-        let mut related_cells = Vec::new();
-        related_cells.extend_from_slice(&self.get(index.0).cells);
-        related_cells.extend_from_slice(&self.get(index.1).cells);
-        related_cells.extend_from_slice(&self.get(index.section()).cells);
-
-        for c in related_cells {
-            if let Some(digit) = c.digit {
-                stuff.remove(&digit);
-            }
-        }
-
-        return stuff;
-    }
 }
 
 impl fmt::Display for Board {
@@ -189,53 +163,4 @@ fn test_set_digit() {
     board.set_digit(index, Digit::Five);
 
     assert_eq!(Some(Digit::Five), board.get(index).digit);
-}
-
-#[test]
-fn test_get_possible_digits_one() {
-    let str = r#"
-    9 - - 8 3 - 1 5 7
-    5 - 3 1 - 6 2 8 -
-    1 - - 7 4 - - 9 -
-    - - - - 5 - 8 3 -
-    3 - 1 - - 4 6 7 2
-    2 - - - 1 3 - - 9
-    - - 2 - 7 - - 1 -
-    - - - - - - - 6 -
-    - 3 4 - 6 - 9 2 -
-        "#;
-
-    let board = Board::from_str(str);
-    let idx = CellIndex(RowIndex(0), ColumnIndex(1));
-    let possible = board.get_possible_digits(idx);
-    let mut set = HashSet::new();
-    set.insert(Digit::Two);
-    set.insert(Digit::Four);
-    set.insert(Digit::Six);
-
-    assert_eq!(set, possible);
-}
-
-#[test]
-fn test_get_possible_digits_two() {
-    let str = r#"
-    9 - - 8 3 - 1 5 7
-    5 - 3 1 - 6 2 8 -
-    1 - - 7 4 - - 9 -
-    - - - - 5 - 8 3 -
-    3 - 1 - - 4 6 7 2
-    2 - - - 1 3 - - 9
-    - - 2 - 7 - - 1 -
-    - - - - - - - 6 -
-    - 3 4 - 6 - 9 2 -
-        "#;
-
-    let board = Board::from_str(str);
-    let idx = CellIndex(RowIndex(8), ColumnIndex(8));
-    let possible = board.get_possible_digits(idx);
-    let mut set = HashSet::new();
-    set.insert(Digit::Five);
-    set.insert(Digit::Eight);
-
-    assert_eq!(set, possible);
 }

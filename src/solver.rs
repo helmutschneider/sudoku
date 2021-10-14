@@ -1,8 +1,10 @@
 use crate::board::Board;
 use crate::cell::Cell;
 use crate::digit::Digit;
+use crate::index::{CellIndex, ColumnIndex, RowIndex};
+use std::collections::HashSet;
 
-const STRATEGIES: [&dyn Strategy; 1] = [&SinglePossibleDigitStrategy {}];
+const STRATEGIES: [&dyn Strategy; 1] = [&RelatedCellsStrategy {}];
 
 pub struct Solver<'a> {
     strategies: &'a [&'a dyn Strategy],
@@ -20,25 +22,27 @@ impl<'a> Solver<'a> {
         let cells = data.iter().flatten().collect::<Vec<&Cell>>();
 
         while !board.is_solved() {
-            let mut did_find_solution = false;
+            let mut solution = None;
+
             for cell in &cells {
                 if cell.digit.is_some() {
                     continue;
                 }
+                let mut possible = PossibleDigits::new();
                 for strat in self.strategies {
-                    let maybe_digit = strat.solve_cell(board, **cell);
-                    if let Some(digit) = maybe_digit {
-                        did_find_solution = true;
-                        board.set_digit(cell.index, digit);
+                    strat.eliminate_digits(board, cell, &mut possible);
+                    solution = possible.get_solution();
+                    if let Some(d) = solution {
+                        board.set_digit(cell.index, d);
                         break;
                     }
                 }
-                if did_find_solution {
+                if solution.is_some() {
                     break;
                 }
             }
 
-            if !did_find_solution {
+            if solution.is_none() {
                 // we went through all our strategies but did not find a solution anywhere. supabad!
                 return false;
             }
@@ -48,21 +52,79 @@ impl<'a> Solver<'a> {
     }
 }
 
-pub trait Strategy {
-    fn solve_cell(&self, board: &Board, cell: Cell) -> Option<Digit>;
+#[derive(Debug)]
+struct PossibleDigits {
+    digits: HashSet<Digit>,
 }
 
-pub struct SinglePossibleDigitStrategy {}
+impl PossibleDigits {
+    fn new() -> Self {
+        let mut stuff = HashSet::new();
+        stuff.extend(Digit::ALL_DIGITS);
 
-impl Strategy for SinglePossibleDigitStrategy {
-    fn solve_cell(&self, board: &Board, cell: Cell) -> Option<Digit> {
-        let possible = board.get_possible_digits(cell.index);
-        if possible.len() == 1 {
-            // is there a more efficient way to extract an element from a HashSet?
-            for dig in possible {
-                return Some(dig);
+        return Self { digits: stuff };
+    }
+
+    fn remove(&mut self, digit: Digit) {
+        self.digits.remove(&digit);
+    }
+
+    fn get_solution(&self) -> Option<Digit> {
+        if self.digits.len() == 1 {
+            for digit in &self.digits {
+                return Some(*digit);
             }
         }
         return None;
     }
+}
+
+trait Strategy {
+    fn eliminate_digits(&self, board: &Board, cell: &Cell, possible: &mut PossibleDigits);
+}
+
+// this struct implements the simplest possible elimination strategy
+// known to any sudoku player. it looks at digits already used in the
+// current row, column and 3x3 section and removes those from the
+// possible solutions.
+struct RelatedCellsStrategy {}
+
+impl Strategy for RelatedCellsStrategy {
+    fn eliminate_digits(&self, board: &Board, cell: &Cell, possible: &mut PossibleDigits) {
+        assert!(cell.digit.is_none());
+
+        let index = cell.index;
+        let mut related_cells = Vec::new();
+        related_cells.extend_from_slice(&board.get(index.0).cells);
+        related_cells.extend_from_slice(&board.get(index.1).cells);
+        related_cells.extend_from_slice(&board.get(index.section()).cells);
+
+        for c in related_cells {
+            if let Some(digit) = c.digit {
+                possible.remove(digit);
+            }
+        }
+    }
+}
+
+#[test]
+fn related_cells_strategy_eliminate_digits() {
+    let strat = RelatedCellsStrategy {};
+    let board_str = r#"
+    9 - - 8 3 - 1 5 7
+    5 - 3 1 - 6 2 8 -
+    1 - - 7 4 - - 9 -
+    - - - - 5 - 8 3 -
+    3 - 1 - - 4 6 7 2
+    2 - - - 1 3 - - 9
+    - - 2 - 7 - - 1 -
+    - - - - - - - 6 -
+    - 3 4 - 6 - 9 2 -
+        "#;
+    let board = Board::from_str(board_str);
+    let mut possible = PossibleDigits::new();
+    let cell = board.get(CellIndex(RowIndex(5), ColumnIndex(7)));
+    strat.eliminate_digits(&board, &cell, &mut possible);
+
+    assert_eq!(Some(Digit::Four), possible.get_solution());
 }
